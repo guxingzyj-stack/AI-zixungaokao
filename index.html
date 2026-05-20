@@ -1887,7 +1887,7 @@
     .query-filters:not(.advanced-open) .filter-card-item:has(#qMyScore),
     .query-filters:not(.advanced-open) .filter-card-item:has(#qMyRank),
     .query-filters:not(.advanced-open) .filter-card-item:has(#qSchool) {
-      display: flex;
+      display: none;
     }
     .query-filters .filter-card-item {
       height: 50px;
@@ -1900,16 +1900,39 @@
     .query-filters .filter-card-item:has(#qMajor) { order: 3; grid-column: auto; min-width: 0; overflow: visible; }
     .query-filters .filter-card-item:has(#qBatch) { order: 4; grid-column: 1; }
     .query-filters .filter-card-item:has(#qSubject) { order: 5; grid-column: 2; }
-    .query-filters .filter-card-item:has(#qMyScore) { order: 6; grid-column: 1 / span 2; }
-    .query-filters .filter-card-item:has(#qMyRank) { order: 7; grid-column: 3; }
+    .query-filters .filter-card-item:has(#qMyScore) { order: 6; grid-column: 1; width: 170px; }
+    .query-filters .filter-card-item:has(#qMyRank) { order: 7; grid-column: 2; width: 170px; }
     .query-filters .filter-card-item:has(#qSchool) { order: 8; grid-column: 1 / -1; }
+    .query-filters.advanced-open .filter-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .query-filters.advanced-open .filter-card-item:has(#qProvince) { flex: 0 0 86px; width: 86px; }
+    .query-filters.advanced-open .filter-card-item:has(#qYear) { flex: 0 0 94px; width: 94px; }
+    .query-filters.advanced-open .filter-card-item:has(#qMajor) {
+      flex: 1 1 calc(100% - 204px);
+      width: auto;
+      min-width: 0;
+    }
+    .query-filters.advanced-open .filter-card-item:has(#qBatch),
+    .query-filters.advanced-open .filter-card-item:has(#qSubject) {
+      flex: 0 0 150px;
+      width: 150px;
+    }
+    .query-filters.advanced-open .filter-card-item:has(#qMyScore),
+    .query-filters.advanced-open .filter-card-item:has(#qMyRank) {
+      flex: 0 0 150px;
+      width: 150px;
+    }
+    .query-filters.advanced-open .filter-card-item:has(#qSchool) {
+      flex: 0 0 100%;
+      width: 100%;
+    }
     .query-filters .filter-card-item:has(#qMyScore) input,
     .query-filters .filter-card-item:has(#qMyRank) input {
       min-width: 0;
       padding-right: 4px;
-    }
-    .query-filters .filter-card-item:has(#qMyRank) {
-      min-width: 132px;
     }
     .filter-action-row-new {
       gap: 10px;
