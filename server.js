@@ -59,6 +59,49 @@ const MAX_CHAT_BODY_BYTES = 256 * 1024;
 const MAX_FEEDBACK_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_TTL_MS = 2 * 60_000;
 
+process.on("uncaughtException", (error) => {
+  console.error("uncaughtException:", error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandledRejection:", reason);
+});
+
+function redactPII(text) {
+  return String(text || "")
+    .replace(/\b1[3-9]\d{9}\b/g, "[手机号]")
+    .replace(/\b\d{6}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/g, "[身份证号]")
+    .replace(/\b\d{15}\b/g, "[身份证号]");
+}
+
+function getClientIp(req) {
+  return (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+}
+
+function sendSafeError(res, statusCode = 500) {
+  if (!res.headersSent) {
+    res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  }
+  res.end(JSON.stringify({ error: "server error" }));
+}
+
+function applyRateLimit(req, res, bucket, maxCount, windowMs = 60_000) {
+  const now = Date.now();
+  cleanupRateLimit(now);
+  const key = `${bucket}:${getClientIp(req)}`;
+  const item = rateLimitMap.get(key) || { count: 0, start: now };
+  if (now - item.start > windowMs) { item.count = 0; item.start = now; }
+  item.count++;
+  rateLimitMap.set(key, item);
+  if (item.count > maxCount) {
+    const waitSec = Math.ceil((windowMs - (now - item.start)) / 1000);
+    res.writeHead(429, { "Content-Type": "application/json", "Retry-After": String(waitSec) });
+    res.end(JSON.stringify({ error: "too many requests", retry_after: waitSec }));
+    return true;
+  }
+  return false;
+}
+
 function readJsonBody(req, maxBytes) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -1027,7 +1070,7 @@ const server = http.createServer(async (req, res) => {
   // 聊天接口（SSE 流式输出）
   if (pathname === "/api/chat" && req.method === "POST") {
     // IP 限流（60秒窗口，同IP最多10次请求）
-    const _ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+    const _ip = getClientIp(req);
     const _now = Date.now();
     cleanupRateLimit(_now);
     const _rl = rateLimitMap.get(_ip) || { count: 0, start: _now };
@@ -1086,7 +1129,7 @@ const server = http.createServer(async (req, res) => {
             parseInt(userProfile.score) || null, isCrisis ? 1 : 0, reqStart);
           convDb.prepare(
             `INSERT INTO messages (id,conversation_id,role,content,created_at) VALUES (?,?,?,?,?)`
-          ).run(userMsgId, convId, "user", message, reqStart);
+          ).run(userMsgId, convId, "user", redactPII(message), reqStart);
         }
       } catch(e) { console.error("埋点写入失败:", e.message); }
 
@@ -1178,14 +1221,13 @@ const server = http.createServer(async (req, res) => {
       res.end();
     } catch (error) {
       if (!res.headersSent) {
-        res.writeHead(error.statusCode || 500, { "Content-Type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify({ error: error.message || "server error" }));
+        sendSafeError(res, error.statusCode || 500);
         return;
       }
       console.error("聊天错误:", error);
       try {
         clearInterval(heartbeat);
-        res.write(`data: ${JSON.stringify({ type: "error", message: error.message || "服务器错误" })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: "error", message: "server error" })}\n\n`);
         res.end();
       } catch {}
     }
@@ -1213,14 +1255,15 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ provinces, years, batches, subjects }));
     } catch (e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("score options failed:", e.message);
+      sendSafeError(res);
     }
     return;
   }
 
   // 查询录取数据
   if (pathname === "/api/scores" && req.method === "GET") {
+    if (applyRateLimit(req, res, "scores", 60)) return;
     if (!db) {
       res.writeHead(503, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "数据库未加载" })); return;
@@ -1267,14 +1310,15 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ total, page, pageSize, rows }));
     } catch (e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("scores query failed:", e.message);
+      sendSafeError(res);
     }
     return;
   }
 
   // 用户反馈接口
   if (pathname === "/api/feedback" && req.method === "POST") {
+    if (applyRateLimit(req, res, "feedback", 30)) return;
     try {
       const { message_id, feedback_type, implicit = false, test_mode = false } = await readJsonBody(req, MAX_FEEDBACK_BODY_BYTES);
       if (!message_id || !feedback_type) {
@@ -1294,15 +1338,14 @@ const server = http.createServer(async (req, res) => {
         }
     } catch(e) {
       console.error("feedback写入失败:", e.message);
-      res.writeHead(e.statusCode || 500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message || "server error" }));
+      sendSafeError(res, e.statusCode || 500);
       return;
     }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
     } catch(e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "server error" }));
+      console.error("feedback failed:", e.message);
+      sendSafeError(res);
     }
     return;
   }
@@ -1357,8 +1400,8 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ today, last_7_days, feedback_stats,
         avg_latency_ms: Math.round(avgRow.avg || 0), top_bad_questions }));
     } catch(e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("stats failed:", e.message);
+      sendSafeError(res);
     }
     return;
   }
@@ -1417,8 +1460,8 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ conversations: rows, limit, offset }));
       }
     } catch(e) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e.message }));
+      console.error("inspect failed:", e.message);
+      sendSafeError(res);
     }
     return;
   }
