@@ -1,0 +1,18 @@
+{
+  "name": "gaokao-consultation",
+  "version": "1.0.0",
+  "description": "高考志愿咨询系统 - Zeabur部署版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "node --check server.js",
+    "eval": "SYSTEM_API_URL=http://localhost:3000 node eval/eval_runner.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
