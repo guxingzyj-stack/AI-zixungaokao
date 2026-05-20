@@ -5244,7 +5244,12 @@
           }
         });
         if (chatHistory.length) showClearBtn();
-        toggleDrawer();
+        const drawer = document.getElementById('historyDrawer');
+        const overlay = document.getElementById('drawerOverlay');
+        if (drawer) drawer.classList.remove('open');
+        if (overlay) overlay.classList.remove('open');
+        switchView('chat');
+        chatArea.scrollTop = chatArea.scrollHeight;
       } catch {}
     }
 
