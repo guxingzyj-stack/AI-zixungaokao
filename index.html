@@ -1877,6 +1877,60 @@
       background: #1F5D55;
       box-shadow: 0 4px 10px rgba(31,93,85,.16);
     }
+    .query-filters .filter-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+    .query-filters:not(.advanced-open) .filter-card-item:has(#qBatch),
+    .query-filters:not(.advanced-open) .filter-card-item:has(#qSubject),
+    .query-filters:not(.advanced-open) .filter-card-item:has(#qMyScore),
+    .query-filters:not(.advanced-open) .filter-card-item:has(#qMyRank),
+    .query-filters:not(.advanced-open) .filter-card-item:has(#qSchool) {
+      display: flex;
+    }
+    .query-filters .filter-card-item {
+      height: 50px;
+      border-radius: 7px;
+      padding: 0 12px;
+      background: #fffdfa;
+    }
+    .query-filters .filter-card-item:has(#qProvince) { order: 1; width: auto; grid-column: auto; }
+    .query-filters .filter-card-item:has(#qYear) { order: 2; width: auto; grid-column: auto; }
+    .query-filters .filter-card-item:has(#qMajor) { order: 3; grid-column: auto; min-width: 0; overflow: visible; }
+    .query-filters .filter-card-item:has(#qBatch) { order: 4; grid-column: 1; }
+    .query-filters .filter-card-item:has(#qSubject) { order: 5; grid-column: 2; }
+    .query-filters .filter-card-item:has(#qMyScore) { order: 6; grid-column: 1 / span 2; }
+    .query-filters .filter-card-item:has(#qMyRank) { order: 7; grid-column: 3; }
+    .query-filters .filter-card-item:has(#qSchool) { order: 8; grid-column: 1 / -1; }
+    .query-filters .filter-card-item:has(#qMyScore) input,
+    .query-filters .filter-card-item:has(#qMyRank) input {
+      min-width: 0;
+      padding-right: 4px;
+    }
+    .query-filters .filter-card-item:has(#qMyRank) {
+      min-width: 132px;
+    }
+    .filter-action-row-new {
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .filter-action-row-new .advanced-filter-toggle {
+      flex: 0 0 100px;
+      height: 48px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 14px;
+      background: #fffdfa;
+    }
+    .filter-action-row-new .query-btn {
+      height: 50px !important;
+      border-radius: 999px !important;
+      font-size: 16px !important;
+      color: #111;
+      background: #e9f4ee;
+      box-shadow: 0 8px 18px rgba(31,93,85,.10);
+    }
     .school-cards {
       padding: 0 24px;
       gap: 12px;
